@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Copilot Budget</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #1c1c1a; --bg2: #252522; --bg3: #2e2e2b;
+      --fg: #f0efe8; --fg2: #9a9991;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+      --blue: #5aa3f0;
+      --green-bg: #27500A; --green-fg: #C0DD97; --green-bar: #639922;
+      --yellow-bg: #633806; --yellow-fg: #FAC775; --yellow-bar: #EF9F27;
+      --red-bg: #791F1F; --red-fg: #F7C1C1; --red-bar: #E24B4A;
+      --radius: 8px; --font: system-ui, -apple-system, sans-serif;
+    }
+    body { font-family: var(--font); background: var(--bg); color: var(--fg); width: 340px; padding: 16px; }
+
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .header-title { font-size: 11px; color: var(--fg2); letter-spacing: 0.06em; text-transform: uppercase; }
+    .sync-row { display: flex; align-items: center; gap: 8px; }
+    .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--fg2); flex-shrink: 0; }
+    .sync-dot.ok { background: var(--green-bar); }
+    .sync-dot.warn { background: var(--yellow-bar); }
+    .sync-status { font-size: 11px; color: var(--fg2); }
+
+    .inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .field label { display: block; font-size: 11px; color: var(--fg2); margin-bottom: 3px; }
+    .input-wrap { position: relative; }
+    .input-wrap input {
+      width: 100%; font-family: var(--font); font-size: 13px; color: var(--fg);
+      background: var(--bg2); border: 0.5px solid var(--border2); border-radius: var(--radius);
+      padding: 6px 22px 6px 8px; outline: none; appearance: textfield; -moz-appearance: textfield;
+    }
+    .input-wrap input::-webkit-outer-spin-button,
+    .input-wrap input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .input-wrap input:focus { border-color: var(--blue); }
+    .unit { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--fg2); pointer-events: none; }
+
+    .sync-bar {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--bg2); border: 0.5px solid var(--border2);
+      border-radius: var(--radius); padding: 8px 10px; margin-bottom: 12px;
+    }
+    .sync-bar select {
+      font-family: var(--font); font-size: 12px; color: var(--fg);
+      background: var(--bg3); border: 0.5px solid var(--border2);
+      border-radius: 6px; padding: 4px 6px; outline: none; cursor: pointer; flex: 1;
+    }
+    .sync-bar select option { background: var(--bg3); }
+    .sync-label { font-size: 11px; color: var(--fg2); white-space: nowrap; }
+    .btn-sync {
+      font-family: var(--font); font-size: 11px; color: var(--fg);
+      background: var(--bg3); border: 0.5px solid var(--border2);
+      border-radius: 6px; padding: 4px 10px; cursor: pointer; white-space: nowrap;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .btn-sync:hover { background: var(--bg); }
+    .btn-sync.syncing { color: var(--fg2); }
+    .spin { display: inline-block; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .mcard { background: var(--bg2); border-radius: var(--radius); padding: 10px; }
+    .mcard-label { font-size: 10px; color: var(--fg2); margin-bottom: 2px; }
+    .mcard-value { font-size: 22px; font-weight: 500; line-height: 1.1; color: var(--fg); }
+    .mcard-value.accent { color: var(--blue); }
+    .mcard-sub { font-size: 10px; color: var(--fg2); margin-top: 2px; }
+
+    .bars { margin-bottom: 12px; }
+    .bar-wrap { margin-bottom: 6px; }
+    .bar-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--fg2); margin-bottom: 3px; }
+    .bar-track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease, background 0.3s ease; }
+
+    .tip { font-size: 11px; padding: 8px 10px; border-radius: var(--radius); line-height: 1.5; margin-bottom: 12px; }
+    .tip.green  { background: var(--green-bg); color: var(--green-fg); }
+    .tip.yellow { background: var(--yellow-bg); color: var(--yellow-fg); }
+    .tip.red    { background: var(--red-bg); color: var(--red-fg); }
+
+    .footer { font-size: 10px; color: var(--fg2); opacity: 0.5; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="header-title">Copilot Budget</span>
+    <div class="sync-row">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span class="sync-status" id="sync-status">not synced</span>
+    </div>
+  </div>
+
+  <div class="inputs">
+    <div class="field">
+      <label>Monthly quota</label>
+      <div class="input-wrap">
+        <input type="number" id="quota" value="300" min="1" step="1" />
+      </div>
+    </div>
+    <div class="field">
+      <label>Used this month</label>
+      <div class="input-wrap">
+        <input type="number" id="used-pct" value="0" min="0" max="100" step="0.1" />
+        <span class="unit">%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sync-bar">
+    <span class="sync-label">Auto-sync</span>
+    <select id="sync-interval">
+      <option value="0">Off</option>
+      <option value="30">Every 30 min</option>
+      <option value="60" selected>Every hour</option>
+      <option value="180">Every 3 hours</option>
+      <option value="360">Every 6 hours</option>
+    </select>
+    <button class="btn-sync" id="btn-sync">
+      <svg id="sync-icon" width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+      </svg>
+      Sync now
+    </button>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="bars">
+    <div class="bar-wrap">
+      <div class="bar-meta"><span>Working day progress</span><span id="month-lbl">0%</span></div>
+      <div class="bar-track"><div class="bar-fill" id="month-bar" style="background:var(--blue);width:0%"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-meta"><span>Monthly quota used</span><span id="used-lbl">0%</span></div>
+      <div class="bar-track"><div class="bar-fill" id="used-bar" style="width:0%"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-meta"><span>Today's allowance used</span><span id="daily-lbl">0%</span></div>
+      <div class="bar-track"><div class="bar-fill" id="daily-bar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <p class="tip" id="tip"></p>
+  <p class="footer">Weekends &amp; AT holidays excluded · Resets 1st 00:00 UTC</p>
+
+  <script src="popup.js"></script>
+</body>
+</html>

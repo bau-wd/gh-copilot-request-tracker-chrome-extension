@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Copilot Budget Tracker",
+  "version": "1.1.0",
+  "description": "Tracks your GitHub Copilot premium request usage with working-day budgeting and auto-sync.",
+  "permissions": ["storage", "alarms", "tabs"],
+  "host_permissions": ["https://github.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Copilot Budget",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/settings/copilot*", "https://github.com/settings/billing*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

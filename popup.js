@@ -163,19 +163,32 @@ document.getElementById('quota').addEventListener('input', () => {
 document.getElementById('used-pct').addEventListener('input', () => {
   const quota   = Math.max(1, parseFloat(document.getElementById('quota').value) || 300);
   const usedPct = Math.min(100, Math.max(0, parseFloat(document.getElementById('used-pct').value) || 0));
+  manualEntry = true;
+  chrome.storage.local.set({ usedPct });
   render(usedPct, quota);
 });
 
 // --- Storage changes (from content.js scrape or background) ---
-chrome.storage.onChanged.addListener(() => {
+// manualEntry: true when the user just typed in the field — prevents the
+// storage.onChanged echo from overwriting the input with the old scraped value.
+let manualEntry = false;
+
+chrome.storage.onChanged.addListener((changes) => {
   chrome.storage.local.get(['usedPct', 'quota', 'scrapedAt', 'syncInterval'], (data) => {
     const pct   = data.usedPct ?? 0;
     const quota = data.quota   ?? 300;
-    document.getElementById('used-pct').value = parseFloat(pct.toFixed(1));
-    document.getElementById('quota').value    = quota;
+
+    // Only update the % input when the change came from an auto-sync scrape,
+    // not from the user typing (manualEntry flag) or a quota change.
+    const syncedNow = changes.scrapedAt !== undefined;
+    if (syncedNow || !manualEntry) {
+      document.getElementById('used-pct').value = parseFloat(pct.toFixed(1));
+      if (syncedNow) manualEntry = false; // a real sync overrides manual input
+    }
+
+    document.getElementById('quota').value = quota;
     updateSyncStatus(data.scrapedAt ?? null);
     render(pct, quota);
-    // Stop spinner when new data arrives
     if (syncingTimer) { clearTimeout(syncingTimer); syncingTimer = null; }
     setSyncing(false);
   });
